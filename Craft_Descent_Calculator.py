@@ -25,8 +25,8 @@ REF:
 FEATURES TO ADD:
     Atmospheric heating (need to find data on thermal conductivity)
     More accurate Coefficient of lift/drag (need more data on properties of spacecraft)
-    Verify EOM accuracy (figure out what is wrong with EOM)
-    Maximum deceleration (not too bad)
+ X  Verify EOM accuracy (figure out what is wrong with EOM)
+ X  Maximum deceleration (not too bad)
     Include multiple stages (currently only ballistic entry)
     Speed of sound/Mach calculations (need gas properties at low pressures)
     Improve user interface (restructure code to be easily interpreted)
@@ -44,10 +44,9 @@ CoD = 1.4       #Coefficient of drag
 CoL = 0.2       #Coefficent of lift
 CrossArea = 0.4 #Cross-sectional area of spacecraft M^2
 
-altitude = 400e3 #Starting altitude in M
+altitude = 400e3 #Starting altitude in M #400e3
 V0 = 2.38e3 #Inital velocity in M/S
-angle = 10 #entry angle in degrees (Below horizontal)
-DForce = 500 #Deceleration force in newtons (not used yet)
+angle = 1 #entry angle in degrees (Below horizontal)
 
 #Properties of Planet (Mars)
 MarsMass = 6.39e23 #Mass in KG
@@ -73,26 +72,9 @@ def PressAtm(altitude): #returns atmospheric pressure in K-Pascals (EQNS REF:1)
         Density = 1e-10
     return P, T, Density
 
-def VelocityCheck(): #This is not really needed but is a good diagonostic tool
-    V_orbit = np.sqrt((G*MarsMass)/(altitude+MarsRadius))
-    alt_optimal = ((G*MarsMass)/(V0**2)) - MarsRadius
-    print("The optimal circular orbit for this altitude is %6.2f meters." %(alt_optimal))
-    if V_orbit > V0:
-        print("The spacecraft is too slow for the set altitude. It will enter the planet.")
-    elif V_orbit < V0:
-        print("The spacecraft is too fast for the orbit. It is not a circular orbit or it will miss the planet.")
-    elif V_orbit == V0:
-        print("The spacecraft is in a perfect circular orbit.")
-    return
-
-def Calc_Cf(): #calculates average skin coefficient (which can be approximated as twice the Stanton number)
-    cf = (2*h_star)/(Cp*B*V)
-    return cf
-
 ### DATA STORAGE ARRAYS ###
 TIME = [] #Seconds
 ALT = [] #Meters
-alt0 = [] #Meters
 VEL = [] #M/Sec
 ANG = [] #degrees
 QHEAT = [] #Joules
@@ -100,138 +82,76 @@ PRESSURE = [] #Pascals
 GRAVITY = [] #M/s^2
 AIR_DENSITY = [] #KG/M^3
 TEMP = [] #Kelvin
-DIST_HORIZ = [] #Meters
-
-'''
-SOUND_VEL = [] #M/Sec #Feature yet to be added
-MACH = [] #Unitless
-'''
+Gs = [] #no units
 
 ########## MAIN CODE ###########
 V = V0
 dist_horiz = 0
-h = altitude
-alt = altitude
 angle = -angle * (np.pi/180) #Convert degrees to rad
 time = 0 #sec
-q_heat = 0 # This is the ammount of heat energy applied
-
-VelocityCheck() #Mostly Used as a diagonostic tool for determining orbit speed
 
 ### MAIN LOOP ###
-
-while alt > 0: #Used to visualize properites of atmosphere at altitude
-    P,T,B = PressAtm(alt)
-    PRESSURE.append(P*1000)
-    TEMP.append(T+273.1)
-    AIR_DENSITY.append(B)
-    alt0.append(alt)
-    alt -= 100
-
-while h > 0: #stops when craft has reached the surface   
-    P,T,B = PressAtm(h)
-    #Cf = Calc_Cf()
-    P = P*1000 #convert kPa to Pa
-    T = T + 273.1 #Convert C to K
+gamma = angle
+v = V0
+dt = 0.0001
+B = altitude
+m = CraftMass
+S = CrossArea
+r = MarsRadius
+h = altitude
+t = 0
+while h > 0:
+    y = np.exp(-h/B)
     g = Gravity(h)
-    K1 = (B*CrossArea*CoD) / (2*CraftMass) #EQNS REF:3 EQN:3a
-    K2 = (B*CrossArea*CoL) / (2*CraftMass) #EQNS REF:3 EQN:3b
-    vel_horiz = V*np.cos(angle) #find horizontal velocity    
-    h_dot = V * angle #Units(M/Sec) EQNS REF:3 EQN:1
-    v_dot = -K1*(V**2)*np.exp(-h/B) - g*angle #Units(M/Sec^2) EQNS REF:3 EQN:2
-    angle_dot = K2*(V**2)*np.exp(-h/B) - g*(1-(V**2)/(g*MarsRadius))
-    #q_dot = (1/4)*Cf*B*(V**3)
-    #q_heat = q_heat + q_dot
-    angle_dot = angle_dot/V
-    h = h + h_dot
-    V = V - v_dot
-    angle = angle + angle_dot
-    dist_horiz += vel_horiz*1
-
+    p, T, rho = PressAtm(h)
+    k1 = (rho * S * CoD) / (2*m)
+    k2 = (rho * S * CoL) / (2*m)
+    dh = v*np.sin(gamma)*dt
+    dv = (-k1*(v**2)*y - g*np.sin(gamma))*dt
+    d_gamma = (k2*v*y - (g/v)*np.cos(gamma*(1-((v**2)/(g*r)))))*dt
+    h += dh
+    v += dv
+    gamma += d_gamma
     
-    ### DATA ACQUISITION ###
-    TIME.append(time)
-    #PRESSURE.append(P)
-    GRAVITY.append(g)
-    #AIR_DENSITY.append(B)
-    #TEMP.append(T)
+    dv_horiz = v * np.cos(gamma) 
+    dist_horiz += dv_horiz * dt
+    
+    Gs.append(-dv/g)
+    TIME.append(t)
+    VEL.append(v)
+    ANG.append(gamma * (180/np.pi))
     ALT.append(h)
-    VEL.append(V)
-    ANG.append(angle*180/np.pi)
-    #QHEAT.append(q_heat)
-    DIST_HORIZ.append(dist_horiz)
-    time += 1
+    
+    t += dt
+    dt += 0.0001
 
-
-########## DISPLAY DATA ##########
+########### OUTPUT ##########
 print("*"*50)
 print("RESULTS:")
-print()
-print("Total horizontal distance covered: %6.2f meters" %(dist_horiz))
-'''
+print()    
+print("The descent will take %.2f seconds" %(t))
+print("The craft will travel %.2f meters horizontally." %(dist_horiz))
+"""  
 plt.figure(1)
-plt.scatter(TIME, TEMP)
-plt.title("Atmospheric Temperature")
-plt.ylabel("Temperature (Kelvin)")
-plt.xlabel("Time (Sec)")
-
-plt.figure(2)
-plt.scatter(TIME, PRESSURE)
-plt.title("Atmospheric Pressure")
-plt.ylabel("Pressure (Pascal)")
-plt.xlabel("Time (Sec)")
-
-plt.figure(3)
-plt.scatter(TIME, AIR_DENSITY)
-plt.title("Atmospheric Density")
-plt.ylabel("Density (KG/M^3)")
-plt.xlabel("Time (Sec)")
-
-plt.figure(4)
-plt.scatter(TIME, GRAVITY)
-plt.title("Gravitational Force")
-plt.ylabel("Gravity (M/S^2)")
-plt.xlabel("Time (Sec)")
-
-plt.figure(5)
-plt.scatter(TIME, ALT)
-plt.title("Altitude of SpaceCraft")
-plt.ylabel("Altitude (Meters)")
-plt.xlabel("Time (Sec)")
-
-plt.figure(6)
 plt.scatter(TIME, VEL)
 plt.title("Velocity of SpaceCraft")
 plt.ylabel("Velocity (Meters/Sec)")
 plt.xlabel("Time (Sec)")
 
-plt.figure(7)
+plt.figure(2)
 plt.scatter(TIME, ANG)
 plt.title("Angle from Horizontal of Nominal Orbit")
 plt.ylabel("Angle (Degrees)")
 plt.xlabel("Time (Sec)")
 
-plt.figure(8)
-plt.scatter(TIME, DIST_HORIZ)
-plt.title("Horizontal distance")
-plt.ylabel("Distance (Meters)")
+plt.figure(3)
+plt.scatter(TIME, ALT)
+plt.title("Altitude of SpaceCraft")
+plt.ylabel("Altitude (Meters)")
+plt.xlabel("Time (Sec)")    
+"""
+plt.figure(4)
+plt.scatter(TIME, Gs)
+plt.title("Deceleration of Spacecraft")
+plt.ylabel("Deceleration (G)")
 plt.xlabel("Time (Sec)")
-'''
-plt.figure(9)
-plt.scatter(alt0, TEMP)
-plt.title("Temperature at Altitude")
-plt.ylabel("Temperature (Kelvin)")
-plt.xlabel("Altitude (M)")
-
-plt.figure(10)
-plt.scatter(alt0, PRESSURE)
-plt.title("Atmospeheric Pressure at Altitude")
-plt.ylabel("Pressure (Pa)")
-plt.xlabel("Altitude (M)")
-
-plt.figure(11)
-plt.scatter(alt0, AIR_DENSITY)
-plt.title("Atmospeheric Density at Altitude")
-plt.ylabel("Density of Atmosphere (Kg/M^3)")
-plt.xlabel("Altitude (M)")
-
