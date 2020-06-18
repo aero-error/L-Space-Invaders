@@ -115,8 +115,8 @@ while h > 0:
     
     dv_horiz = v * np.cos(gamma) 
     dist_horiz += dv_horiz * dt
-    
-    Gs.append(-dv/g)
+
+    Gs.append(-dv/(9.81*dt)) #Note these are Earth Gs
     TIME.append(t)
     VEL.append(v)
     ANG.append(gamma * (180/np.pi))
@@ -124,13 +124,14 @@ while h > 0:
     
     t += dt
 
+
 ########### OUTPUT ##########
 print("*"*50)
 print("RESULTS:")
 print()    
 print("The descent will take %.2f seconds" %(t))
 print("The craft will travel %.2f meters horizontally." %(dist_horiz))
- 
+
 plt.figure(1)
 plt.scatter(TIME, VEL)
 plt.title("Velocity of SpaceCraft")
@@ -152,5 +153,6 @@ plt.xlabel("Time (Sec)")
 plt.figure(4)
 plt.scatter(TIME, Gs)
 plt.title("Deceleration of Spacecraft")
-plt.ylabel("Deceleration (G)")
+plt.ylabel("Deceleration (Earth Gs)")
 plt.xlabel("Time (Sec)")
+
