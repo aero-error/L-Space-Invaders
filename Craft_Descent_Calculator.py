@@ -93,7 +93,7 @@ time = 0 #sec
 ### MAIN LOOP ###
 gamma = angle
 v = V0
-dt = 0.0001
+dt = 0.01
 B = altitude
 m = CraftMass
 S = CrossArea
@@ -123,7 +123,6 @@ while h > 0:
     ALT.append(h)
     
     t += dt
-    dt += 0.0001
 
 ########### OUTPUT ##########
 print("*"*50)
@@ -131,7 +130,7 @@ print("RESULTS:")
 print()    
 print("The descent will take %.2f seconds" %(t))
 print("The craft will travel %.2f meters horizontally." %(dist_horiz))
-"""  
+ 
 plt.figure(1)
 plt.scatter(TIME, VEL)
 plt.title("Velocity of SpaceCraft")
@@ -149,7 +148,7 @@ plt.scatter(TIME, ALT)
 plt.title("Altitude of SpaceCraft")
 plt.ylabel("Altitude (Meters)")
 plt.xlabel("Time (Sec)")    
-"""
+
 plt.figure(4)
 plt.scatter(TIME, Gs)
 plt.title("Deceleration of Spacecraft")
