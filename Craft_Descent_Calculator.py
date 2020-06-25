@@ -37,7 +37,7 @@ altitude = 350e3 #Starting altitude in M #400e3
 V0 = 2.42e3 #Inital velocity in M/S
 angle = 10 #entry angle in degrees (Below horizontal)
 Deploy1 = 30000 #altitude to deploy parachute
-Deploy2 = 2000  #altitude to stage parachute drop heat shield
+Deploy2 = 2000  #altitude to stage parachute and drop heat shield
 
 #Properties of the spacecraft
 ### STAGE 1 ###
@@ -63,7 +63,7 @@ CrossArea3 = 3.14 #Cross-sectional area of spacecraft M^2
 MarsMass = 6.39e23 #Mass in KG
 MarsRadius = 3.3895e6 #Radius in M
 
-#Contants
+#Constants
 G = 6.67408e-11 #Gravitaional constant
 R = 188.92 #Gas Constant of CO2 (J/(kg*K))
 GAMMA = 1.28 #Specific heat of CO2 at 300k (NOTE: WILL NEED TO CHANGE THIS LATER)
@@ -97,10 +97,29 @@ def PressAtm(altitude): #returns atmospheric pressure in K-Pascals (EQNS REF:1)
         Density = 1e-10
     return P, T, Density
 
-def Mach(T): #returns the speed of sound (m/s)
+def Mach(T): #returns the speed of sound (m/s) (NEEDS WORK ON GAMMA)
     T += 273.15
     M = np.sqrt(GAMMA*R*T)
     return M
+
+def VelocityCheck(): #This is not really needed but is a good diagonostic tool
+    V_orbit = np.sqrt((G*MarsMass)/(altitude+MarsRadius))
+    alt_optimal = ((G*MarsMass)/(V0**2)) - MarsRadius
+    print("Testing Mode:")
+    print()
+    print("The optimal circular orbit for this altitude is %6.2f meters." %(alt_optimal))
+    if V_orbit > V0:
+        print("The spacecraft is too slow for the set altitude. It will enter the planet.")
+    elif V_orbit < V0:
+        print("The spacecraft is too fast for the orbit. It is not a circular orbit or it will miss the planet.")
+    elif V_orbit == V0:
+        print("The spacecraft is in a perfect circular orbit.")
+    print()
+    return
+
+def Calc_Cf(): #calculates average skin coefficient (which can be approximated as twice the Stanton number) (NEEDS WORK)
+    cf = (2*h_star)/(Cp*B*V)
+    return cf
 
 ### DATA STORAGE ARRAYS ###
 TIME = [] #Seconds
@@ -124,6 +143,7 @@ time = 0 #sec
 
 ### TESTING LOOP ###
 if testing == True:
+    VelocityCheck()
     for i in range(0,int(altitude)):
         pres, temp, density = PressAtm(i)
         grav = Gravity(i)
@@ -134,7 +154,7 @@ if testing == True:
         Y_POS.append(i)
         MACH.append(Mach(temp))
     
-    
+
 ### MAIN LOOP ###
 gamma = angle
 v = V0
@@ -180,7 +200,6 @@ while h > 0:
     VEL.append(v)
     ANG.append(gamma * (180/np.pi))
     ALT.append(h)
-    
     
     t += dt
 
